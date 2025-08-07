@@ -1,0 +1,23 @@
+{
+  "name": "agent-smith-ai",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "**Agent Smith** is a LangChain-powered conversational AI assistant that uses OpenAI's GPT model and Tavily tools to search the web and extract real-time information.",
+  "main": "agent.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^0.3.67",
+    "@langchain/openai": "^0.6.4",
+    "@langchain/tavily": "^0.1.5",
+    "@tavily/core": "^0.5.10",
+    "dotenv": "^17.2.1",
+    "langchain": "^0.3.30",
+    "readline": "^1.3.0",
+    "zod": "^3.25.76"
+  }
+}
