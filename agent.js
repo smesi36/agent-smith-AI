@@ -4,10 +4,7 @@ dotenv.config();
 import readline from "readline";
 import { ChatOpenAI } from "@langchain/openai";
 import { StructuredTool } from "@langchain/core/tools";
-import {
-  AgentExecutor,
-  createOpenAIToolsAgent,
-} from "langchain/agents";
+import { AgentExecutor, createOpenAIToolsAgent } from "langchain/agents";
 import {
   ChatPromptTemplate,
   MessagesPlaceholder,
@@ -17,6 +14,10 @@ import { tavily } from "@tavily/core";
 import { TavilySearch } from "@langchain/tavily";
 import { z } from "zod";
 
+import fs from "fs";
+
+// Save history
+// fs.writeFileSync("memory/history.json", JSON.stringify(chat_history, null, 2));
 //
 // 🧠 Wrapped TavilySearch Tool
 //
@@ -36,9 +37,10 @@ class WrappedTavilySearch extends StructuredTool {
   async _call({ query }) {
     const result = await this.tool.invoke({ query });
     // Force output to a string to avoid formatting errors
-    const output = typeof result === "string"
-      ? result
-      : result?.answer || JSON.stringify(result);
+    const output =
+      typeof result === "string"
+        ? result
+        : result?.answer || JSON.stringify(result);
     // console.log("🔎 TavilySearch result:", output);
     return output;
   }
@@ -84,6 +86,11 @@ async function main() {
     temperature: 0.2,
   });
 
+  // Ensure memory directory exists
+  if (!fs.existsSync("memory")) {
+    fs.mkdirSync("memory");
+  }
+
   const tools = [new WrappedTavilySearch(), new TavilyExtractTool()];
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -106,13 +113,41 @@ async function main() {
     output: process.stdout,
   });
 
-  const chat_history = [];
+  // --------------- LONG TERM CHAT HISTORY --------------- //
+  // const chat_history = [];
+  let chat_history = [];
+
+  try {
+    const saved = fs.readFileSync("memory/history.json", "utf-8");
+    chat_history = JSON.parse(saved).map((msg) =>
+      msg.type === "human"
+        ? new HumanMessage(msg.content)
+        : new AIMessage(msg.content)
+    );
+    console.log("🧠 Loaded previous chat history.");
+    // show name if remembered
+    const lastHumanMsg = chat_history.find((m) => m._getType() === "human");
+    if (lastHumanMsg?.content?.toLowerCase().includes("my name is")) {
+      console.log("👋 Welcome back!");
+    }
+  } catch {
+    console.log("📭 No saved history found, starting fresh.");
+  }
 
   function askQuestion() {
     rl.question("User: ", async (input) => {
       if (input.toLowerCase() === "exit") {
-        console.log("Agent: Goodbye Mr. Anderson!");
+        console.log("Agent Smith: Goodbye Mr. Anderson!");
         rl.close();
+        return;
+      }
+
+      // Command to clear history
+      if (input.toLowerCase() === "clear") {
+        fs.unlinkSync("memory/history.json");
+        console.log("🧽 Memory wiped clean.");
+        chat_history = [];
+        askQuestion();
         return;
       }
 
@@ -127,6 +162,19 @@ async function main() {
       chat_history.push(new HumanMessage(input));
       chat_history.push(new AIMessage(response.output));
 
+      // Save updated history to a file. This is the long term chat history
+      fs.writeFileSync(
+        "memory/history.json",
+        JSON.stringify(
+          chat_history.map((msg) => ({
+            type: msg._getType(), // "human" or "ai"
+            content: msg.content,
+          })),
+          null,
+          2
+        )
+      );
+
       askQuestion();
     });
   }
@@ -138,4 +186,3 @@ main().catch((err) => {
   console.error("❌ Error running agent:", err);
   process.exit(1);
 });
-
